@@ -19,13 +19,130 @@ andIt		EQU	$0000000F	;holds Hex for isolating last 4 bits
 
 	ORG	start
 
+***************************************************************
+* Program set-up and pattern calls
+***************************************************************
+	LEA	stack,SP		; init stack pointer
+
+prompt	MOVE.B	#task1,D0		;D0 now holds task1, print wo CR
+	LEA	first,A1		;A1 holds request for start add
+	MOVE.W	firstL,D1		;D1 holds length of first string
+	TRAP	#15			;do it
+
+  MOVE.W  #8,D2 ; we will accept up to 8 ascii chars
+  BSR  read_hex ; get the hex value for first address
+  CMPI #1,D6  ; check for an error
+  BEQ input_error ; TODO: input_error should branch back to prompt when done
+  MOVE.L D7,(ifirst) ;save first address to memory for later
+
+	MOVE.B	#task1,D0		;D0 holds task1, print wo Cr
+	LEA	end,A1			;A1 holds request for last addr
+	MOVE.W	endL,D1			;D1 holds length of last addr string
+	TRAP	#15			;do it
+
+  MOVE.W  #8,D2 ; we will accept up to 8 ascii chars
+  BSR  read_hex ; get the hex value for end
+  CMPI #1,D6  ; check for an error
+  BEQ input_error ; TODO: input_error should branch back to prompt when done
+  MOVE.L D7,(iend) ;save end to memory for later
+
+	MOVE.B	#task1,D0		;D0 holds task1, print wo Cr
+	LEA	valu,A1			;A1 holds request for value of pattern to search
+	MOVE.W	valuL,D1		;D1 holds length of value string
+	TRAP	#15			;do it
+
+  MOVE.W  #4,D2 ; we will accept up to 4 ascii chars
+  BSR  read_hex ; get the hex value for pattern
+  CMPI #1,D6  ; check for an error
+  BEQ input_error ; TODO: input_error should branch back to prompt when done
+  MOVE.L D7,(ivalu) ;save pattern value to memory for later
+
+  MOVEA.L (ifirst),A0
+  MOVEA.L (iend),A1
+  MOVE.W (ivalu),A1
+
+	BSR	do_fill			; fill the address range
+	BSR	do_test			; run the test
+  BRA prompt
+
+
+***************************************************************
+* Subroutine do_fill
+* Fills the region between the start address and end address (inclusive)
+* with the given pattern
+*
+* API: 
+* A0: start address
+* A1: end address
+* D0: pattern to copy (WORD size)
+***************************************************************
+do_fill		MOVEM.L A0,-(SP)  	; A0 is the only register that will be modified
+fill_loop	MOVE.W	D0,(A0)+	; Copy word pattern to current location, increment address by word
+		CMPA.L	A0,A1
+		BGE	fill_loop	; if A0 <= A1, do the loop again
+		MOVEM.L	(SP)+,A0	; restore start address register by popping stack
+		RTS			; return back from whence you came
+
+
+***************************************************************
+* Subroutine do_test
+* Iterates from start address to end address and checks if the word
+* read is the expected word. If it isn't, handle the error. If not, 
+* continue until you hit the end.
+*
+* API:
+* A0: start address
+* A1: end address
+* D0: expected pattern (WORD size)
+* 
+* Registers Used:
+* D1: Pattern read from memory
+* D2: Location of error (LONG size)
+***************************************************************
+do_test		MOVEM.L A0,-(SP) 	; save start address register
+		MOVEM.W	D1-D2,-(SP)
+		CLR.W	D1		
+		CLR.W	D2		
+test_loop	MOVE.L	A0,D2		; cache current memory location
+		MOVE.W	(A0)+,D1	; read in the word of data
+		CMP.W	D0,D1
+		BNE	handle_err	; memory bad, handle it
+		CMP.L	A0,A1		; check if we're done
+		BGE	test_loop	; do another loop if A0 <= A1
+		MOVEM.W	(SP)+,D1-D2	; pop stack for all modified registers	
+		MOVEM.L	(SP)+,A0
+		RTS			; we're done
+
+
+***************************************************************
+* FIXME!!!!!!!!! REVAMP THIS TO PRINT INSTEAD OF SAVE TO MEMORY
+* Subroutine handle_err
+* Breaks out right away if the error count is the max_err. Otherwise,
+* writes the expected data to data_wr, actual data to data_rd, errored
+* memory address to bad_loc and increments err_cnt
+*
+* API:
+* D0: Expected data (WORD size)
+* D1: Actual data read (WORD size)
+* D2: Location of error (LONG size)
+* D6: Error count
+***************************************************************		
+handle_err	CMP.W	#max_err,(err_cnt)
+		BEQ	gtfo		; if err_cnt = max_err, exit.
+		MOVE.W	D0,(data_wr) 	; write expected data
+		MOVE.W	D1,(data_rd)	; write actual data
+		MOVE.L	D2,(bad_loc)	; write error location
+		ADDQ.W	#1,(err_cnt)	; increment the error count
+		RTS			; were done
+
+
 ************************************************************
 * read_hex: takes input from the user and reads a hex string up to
 *	    8 characters in length.
 *
 * API:
-* Assumes that the "string" label is set.
-* D7: LONG signed return value. -1 if invalid.
+* D2: argument for max char length (8 or 4 in this case)
+* D7: LONG return value
 * D6: global bad flag, if 1, something has gone wrong
 *
 * Registers used:
@@ -39,13 +156,13 @@ andIt		EQU	$0000000F	;holds Hex for isolating last 4 bits
 read_hex 	MOVEM.L A1/D5,-(SP)
 		MOVEM.W	D0-D1,-(SP)	; NOTE: i wanted to use .B here but it wouldn't let me
 		MOVE.B	#task2,D0 	; task 2 to read input
-		LEA	string,A1	; tell it where to store the string
+    LEA istring,A1      ; istring is the input string
 		TRAP	#15
 		CLR.L	D5		; clear out the temp return value
 		CMPI.W	#0,D1		; if zero-length input
 		BEQ	rh_err		; error and exit
-		CMPI.W	#8,D1
-		BGT	rh_err		; if there are more than 8 hex chars
+		CMPI.W	D2,D1
+		BGT	rh_err		; if there are more than D2 hex chars, bad
 		MOVE.B	D1,D0		; cache the string length
 		SUBI.B	#1,D0		; D0 - 1 is the number of chars remaining
 rh_loop		CMPI.B	#0,D0		; while D0 >= 0
@@ -64,6 +181,7 @@ rh_ok		MOVE.L	D5,D7		; set the return value before exit
 		MOVEM.W	(SP)+,D0-D1	; restore registers NOTE: i wanted to use .W here but it wouldn't let me
 		MOVEM.L	(SP)+,A1/D5
 		RTS			; exit subroutine
+
 
 *******************************************************************************
 *	Subroutine:	getDigis
@@ -132,6 +250,7 @@ ah_ok		MOVEM.W	(SP)+,D1	; pop D1 off the stack
 		RTS			; exit subroutine
 
 ********************************************************
+* NOTE TO NICOLE: is this now invalidated by getDigis? If so, getDigis needs to be finished
 * h_to_a: convert and append a LONG hex value stored in D0 to
 * an ASCII representation at the end of the input string
 * TODO: more documentation
@@ -139,7 +258,6 @@ ah_ok		MOVEM.W	(SP)+,D1	; pop D1 off the stack
 * D1: rolling mask used to chop up the input hex by nibbles (RESTORED)
 * D2: counter for number of hex chars remaining
 * D3: temp copy of the hex value
-* NOTE: I think the masking is unnecessary if we can use BFEXTU
 ********************************************************
 h_to_a	MOVEM.L	D1-D3,-(SP)
 	MOVE.L #$FF000000,D1	; set a mask for the 8 most significant bits
@@ -171,7 +289,21 @@ goodValu	DC.B	$39,$41,$43,$45	*holds initial search value in ASCII
 goodL		DC.W	goodL-goodValu	*length
 message		DC.B	'lets see what we are looking for',CR,LF,CR,LF
 messageL	DC.W	messageL-message *length
-string		DS.B	80
+header		DC.B	'ADDRESS          DATA WRITTEN         DATA READ'
+headerL		DC.W	headerL-header		*length of header string
+first		DC.B	'Please enter valid start address',CR,LF
+		DC.B	'start address must be above $00002000   '  
+firstL		DC.W	firstL-first		*lenght of first addr string
+end		DC.B	'Please enter valid end address',CR,LF
+		DC.B	'end address must be below $000FFFFF',CR,LF
+		DC.B	'end address must at least 1 word larger than start address   '
+endL		DC.W	endL-end		*length of the last addr string
+valu		DC.B	'Please enter value to check   '
+valuL		DC.W	valuL-valu		*length of the value string
+ifirst  DS.L  1 ;location to store starting address
+iend  DS.L  1 ;location to store ending address
+ivalu  DS.W  1 ;location to store test pattern value
+istring		DS.B	80 ; input string
 
 		END	start		*won't read any more instructions
 
