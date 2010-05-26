@@ -34,7 +34,7 @@ prompt1		MOVE.B	#task1,D0		;D0 now holds task1, print wo CR
 		MOVE.W	firstL,D1		;D1 holds length of first string
 		TRAP	#15			;do it
 
- 		MOVE.W  #8,D2 			; we will accept up to 8 ascii chars
+ 		MOVE.W  #9,D2 			; we will accept up to 8 ascii chars + newline
   		BSR  	read_hex 		; get the hex value for first address
  		CMPI 	#1,D6  			; check for an error
   		BEQ 	startEr			; branch to error message
@@ -51,7 +51,7 @@ prompt2		MOVE.B	#task1,D0		;D0 holds task1, print wo Cr
 		MOVE.W	endL,D1			;D1 holds length of last addr string
 		TRAP	#15			;do it
 
-  		MOVE.W  #8,D2 			; we will accept up to 8 ascii chars
+  		MOVE.W  #9,D2 			; we will accept up to 8 ascii chars + newline
   		BSR  	read_hex 		; get the hex value for end
  		CMPI	#1,D6  			; check for an error
   		BEQ 	endEror	 		; TODO: input_error should branch back to prompt when done
@@ -68,7 +68,7 @@ prompt3		MOVE.B	#task1,D0		;D0 holds task1, print wo Cr
 		MOVE.W	valuL,D1		;D1 holds length of value string
 		TRAP	#15			;do it
 
-  		MOVE.W  #4,D2 			; we will accept up to 4 ascii chars
+  		MOVE.W  #5,D2 			; we will accept up to 4 ascii chars + newline
   		BSR  	read_hex 		; get the hex value for pattern
   		CMPI 	#1,D6  			; check for an error
   		BEQ 	valEror	 		; TODO: input_error should branch back to prompt when done
@@ -353,6 +353,7 @@ valuErr		DC.B	'You entered an invalid value to search',CR,LF
 valuErrL	DC.W	valuErrL-valuErr	*lenght of value error string
 
 		END	start		*won't read any more instructions
+
 
 
 
