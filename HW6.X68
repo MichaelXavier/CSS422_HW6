@@ -189,9 +189,6 @@ handle_err	MOVEM.L	A0,-(SP)	;save onto stack
 		MOVE.W	badValuL,D1	;D1 holds length of string
 		TRAP	#15		;print it
 		
-*		MOVE.W	D0,(data_wr) 	; write expected data
-*		MOVE.W	D1,(data_rd)	; write actual data
-*		MOVE.L	D2,(bad_loc)	; write error location
 		ADDQ.W	#1,(err_cnt)	; increment the error count
 		MOVEM.L	(SP)+,A0	; Restore the registers
 		MOVEM.L	(SP)+,D3-D4	; Restore the registers
@@ -306,32 +303,6 @@ ah_num		SUBI.W	#$30,D7		; numeric: the hex value - $30 is the number
 ah_err		MOVE.W 	#1,D6		; set bad flag
 ah_ok		MOVEM.W	(SP)+,D1	; pop D1 off the stack
 		RTS			; exit subroutine
-
-********************************************************
-* NOTE TO NICOLE: is this now invalidated by getDigis? If so, getDigis needs to be finished
-* h_to_a: convert and append a LONG hex value stored in D0 to
-* an ASCII representation at the end of the input string
-* TODO: more documentation
-* D0: input hex value, left unchanged
-* D1: rolling mask used to chop up the input hex by nibbles (RESTORED)
-* D2: counter for number of hex chars remaining
-* D3: temp copy of the hex value
-********************************************************
-*h_to_a	MOVEM.L	D1-D3,-(SP)
-*	MOVE.L #$FF000000,D1	; set a mask for the 8 most significant bits
-*	MOVE.B	#3,D2		; there are 3 chars left (used to roll the pattern)
-*ha_loop	MOVE.L	D0,D3		; copy the input hex value to a temp register
-*	AND.L	D1,D3		; AND with the mask to extract the 8 bits we want
-	
-	;TODO: someone write the code to print ASCII
-
-*	CMPI.B	#0,D2		; see if we've got any characters left
-*	BEQ	ha_ok		; if not, we're done
-*	SUBI.B	#1,D2		; decrement counter
-*	ASR.L	#4,D1		; roll the mask over 8 bits FIXME: should i be using long here? this would only roll it 4 bits right?
-	
-*ha_ok	MOVEM.L	(SP)+,D1-D3	; FIXME: is this backwards?
-	
 
 *******************************************************************************
 *	Data area
