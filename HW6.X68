@@ -36,14 +36,16 @@ prompt1		MOVE.B	#task1,D0		;D0 now holds task1, print wo CR
 
  		MOVE.W  #9,D2 			; we will accept up to 8 ascii chars + newline
   		BSR  	read_hex 		; get the hex value for first address
- 		CMPI 	#1,D6  			; check for an error
+ 		CMPI.B 	#1,D6  			; check for an error
   		BEQ 	startEr			; branch to error message
   		MOVE.L 	D7,(ifirst) 		;save first address to memory for later
+  		BRA	prompt2
   	
 startEr		MOVE.B	#task1,D0		*D0 now holds task1, print wo CR
 		LEA	stErr,A1		*A1 holds error string for start addr
 		MOVE.W	stErrL,D1		*D1 holds length of error message str
 		TRAP	#15			*do it
+		CLR.B	D6			;clear error out
 		BRA	prompt1			*reprompt for start addr	 	
 
 prompt2		MOVE.B	#task1,D0		;D0 holds task1, print wo Cr
@@ -56,11 +58,13 @@ prompt2		MOVE.B	#task1,D0		;D0 holds task1, print wo Cr
  		CMPI	#1,D6  			; check for an error
   		BEQ 	endEror	 		; TODO: input_error should branch back to prompt when done
   		MOVE.L 	D7,(iend) 		;save end to memory for later
+  		BRA 	prompt3
   	
 endEror 	MOVE.B	#task1,D0		*D0 now holds task1, print wo CR
 		LEA	endErr,A1		*A1 holds error string for start addr
 		MOVE.W	endErrL,D1		*D1 holds length of error message str
 		TRAP	#15			*do it
+		CLR.B	D6			;clear error out
 		BRA	prompt2			*reprompt for end addr
 
 prompt3		MOVE.B	#task1,D0		;D0 holds task1, print wo Cr
@@ -68,19 +72,23 @@ prompt3		MOVE.B	#task1,D0		;D0 holds task1, print wo Cr
 		MOVE.W	valuL,D1		;D1 holds length of value string
 		TRAP	#15			;do it
 
-  		MOVE.W  #5,D2 			; we will accept up to 4 ascii chars + newline
+  		MOVE.W  #9,D2 			; FIXME: lets just cmp the result we will accept up to 4 ascii chars + newline
   		BSR  	read_hex 		; get the hex value for pattern
   		CMPI 	#1,D6  			; check for an error
   		BEQ 	valEror	 		; TODO: input_error should branch back to prompt when done
+  		CMPI.L	#$FFFF,D7		; easiest way is to just see if its over FFFF
+  		BGT	valEror
  		MOVE.L 	D7,(ivalu) 		;save pattern value to memory for later
+ 		BRA	lets_go
  	
 valEror		MOVE.B	#task1,D0		*D0 now holds task1, print wo CR
 		LEA	valuErr,A1		*A1 holds error string for start addr
 		MOVE.W	valuErrL,D1		*D1 holds length of error message str
 		TRAP	#15			*do it
+		CLR.B	D6			;clear error out
 		BRA	prompt3			*reprompt for value
 	
-		MOVE.B	#task0,D0		*Do now holds task0, print w CR
+lets_go		MOVE.B	#task0,D0		*Do now holds task0, print w CR
 		LEA	header,A1		*A1 holds header string
 		MOVE.W	headerL,D1		*D1 holds lenght of header string
 		TRAP	#15			*print out string,do it	
@@ -91,6 +99,7 @@ valEror		MOVE.B	#task1,D0		*D0 now holds task1, print wo CR
 
 		BSR	do_fill			; fill the address range
 		BSR	do_test			; run the test
+		CLR.B	D6			;clear error out if there is one
   		BRA 	prompt1			; ask for new address range
   	
 done		STOP	#sim_end		; exit code for the simulator
@@ -230,10 +239,12 @@ rh_loop		CMPI.B	#0,D0		; while D0 >= 0
 		BSR	a_to_h		; convert current ASCII to hex
 		CMPI.B	#1,D6		; check bad flag
 		BEQ	rh_err		; if its set, error out, yes this is redundant
+		CMPI.W	#0,D0		; if we are at 0, don't bother with the shift
+		BEQ	rh_merge
 		MOVE.W	D0,D3		; cache the count to D3
 		MULU.W	#4,D3		; mult by 4 to get the number of hex chars to shift
 		ASL.L	D3,D7		; shift it left to fill in the proper slot in the bit field
-		OR.L	D7,D5		; combine with temp return value
+rh_merge	OR.L	D7,D5		; combine with temp return value
 		SUBI.B	#1,D0		; decrement number of chars left
 		BRA	rh_loop		; restart the while oop
 
@@ -297,15 +308,15 @@ a_to_h		MOVEM.W	D1,-(SP) 	; save te state of d1 to stack
 		BLT	ah_err
 		CMPI.B	#$40,D1		; if D1 < $40, it's 0-9
 		BLT	ah_num
-		CMPI.B	#$46,D1		; if D1 < $46, its A-F
-		BLT	ah_uc
+		CMPI.B	#$46,D1		; if D1 <= $46, its A-F
+		BLE	ah_uc
 		CMPI.B 	#$61,D1		; if D1 < $61 or > $66, error
 		BLT	ah_err
 		CMPI.B	#$66,D1
 		BGT	ah_err	; if we havent errored out yet, fall through to lower case
 ah_lc		SUBI.B	#$57,D7		; lower case: the hex value - $57 is the hex num
 		BRA	ah_ok		; done
-ah_uc		SUBI.B	#$37,D1		; upper case: the hex value - $37 is the hex num
+ah_uc		SUBI.B	#$37,D7		; upper case: the hex value - $37 is the hex num
 		BRA	ah_ok		; done		
 ah_num		SUBI.B	#$30,D7		; numeric: the hex value - $30 is the number
 		BRA	ah_ok		; done
