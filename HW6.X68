@@ -208,29 +208,31 @@ handle_err	MOVEM.L	A0,-(SP)	;save onto stack
 * A1: current pointer in the input string (NOT RESTORED)
 * D0: number of characters left to read (RESTORED)
 * D1: string length returned from trap call (RESTORED)
+* D3: utility counter multiplier register used for ASL (RESTORED)
 * D5: temporary return value storage (RESTORED)
 *
 * FIXME: all the <= < > >= branches MIGHT be backwards 
 ************************************************************
 read_hex 	MOVEM.L A1/D5,-(SP)
-		MOVEM.W	D0-D1,-(SP)	; NOTE: i wanted to use .B here but it wouldn't let me
+		MOVEM.W	D0-D1/D3,-(SP)	; NOTE: i wanted to use .B here but it wouldn't let me
 		MOVE.B	#task2,D0 	; task 2 to read input
     		LEA 	istring,A1      ; istring is the input string
 		TRAP	#15
 		CLR.L	D5		; clear out the temp return value
-		CMPI.W	#0,D1		; if zero-length input
-		BEQ	rh_err		; error and exit
+		SUBI.W	#1,D1		; we get an extra char from newlines apparently
+		CMPI.W	#0,D1		; if zero-length or less input
+		BLE	rh_err		; error and exit
 		CMP.W	D2,D1
 		BGT	rh_err		; if there are more than D2 hex chars, bad
 		MOVE.B	D1,D0		; cache the string length
-		SUBI.B	#1,D0		; D0 - 1 is the number of chars remaining
 rh_loop		CMPI.B	#0,D0		; while D0 >= 0
-;		BGE	rh_ok		; after the loop, we are done
 		BLT	rh_ok		; after the loop, we are done
 		BSR	a_to_h		; convert current ASCII to hex
 		CMPI.B	#1,D6		; check bad flag
 		BEQ	rh_err		; if its set, error out, yes this is redundant
-		ASL.L	D0,D7		; shift it left by # of chars remaining
+		MOVE.W	D0,D3		; cache the count to D3
+		MULU.W	#4,D3		; mult by 4 to get the number of hex chars to shift
+		ASL.L	D3,D7		; shift it left to fill in the proper slot in the bit field
 		OR.L	D7,D5		; combine with temp return value
 		SUBI.B	#1,D0		; decrement number of chars left
 		BRA	rh_loop		; restart the while oop
@@ -238,7 +240,7 @@ rh_loop		CMPI.B	#0,D0		; while D0 >= 0
 		BRA	rh_ok		; after loop, we are OK
 rh_err		MOVE.W	#1,D6		; set bad flag
 rh_ok		MOVE.L	D5,D7		; set the return value before exit
-		MOVEM.W	(SP)+,D0-D1	; restore registers NOTE: i wanted to use .W here but it wouldn't let me
+		MOVEM.W	(SP)+,D0-D1/D3	; restore registers NOTE: i wanted to use .W here but it wouldn't let me
 		MOVEM.L	(SP)+,A1/D5
 		RTS			; exit subroutine
 
@@ -360,6 +362,7 @@ valuErr		DC.B	'You entered an invalid value to search',CR,LF
 valuErrL	DC.W	valuErrL-valuErr	*lenght of value error string
 
 		END	start		*won't read any more instructions
+
 
 
 
