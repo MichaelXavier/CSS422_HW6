@@ -294,9 +294,9 @@ a_to_h		MOVEM.W	D1,-(SP) 	; save te state of d1 to stack
 		BLT	ah_err
 		CMPI.W	#66,D1
 		BGT	ah_err	; if we havent errored out yet, fall through to lower case
-ah_lc		SUBI.W	#$37,D7		; lower case: the hex value - $37 is the hex num
+ah_lc		SUBI.W	#$57,D7		; lower case: the hex value - $57 is the hex num
 		BRA	ah_ok		; done
-ah_uc		SUBI.W	#$57,D1		; upper case: the hex value - $57 is the hex num
+ah_uc		SUBI.W	#$37,D1		; upper case: the hex value - $37 is the hex num
 		BRA	ah_ok		; done		
 ah_num		SUBI.W	#$30,D7		; numeric: the hex value - $30 is the number
 		BRA	ah_ok		; done
