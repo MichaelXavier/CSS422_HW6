@@ -2,11 +2,28 @@
 * Program    : HW6.X68
 * Written by : Michael Xavier, Nicole Tiedeman, and Paul Michael A. Liam, Jr.
 * Date       : 5/25/2010
-* Description:
+* Description: This program extends HW#5 by allowing a user to enter:
+*		- The starting address of the memory test
+*		- The ending address of the memory test
+*		- The word pattern to use for the test
 *
+*	       However, note that the starting and ending addresses
+*	       must be within the addresses $00002000 and $000FFFFF.
 *
+*	       Here is the current flow of the program:
+*		1. Program asks user to input starting address
+*		2. Program asks user to input ending address
+*		3. Program asks user to input word pattern to test
+*		4. Program fills memory region with word pattern
+*		5. Program checks for errors in the memory region
+*		   a. If any errors are found, the following information
+*		      is output:
+*			- The address where the error occurred
+*			- The expected test pattern
+*			- The actual pattern found at the location
+*		6. Program then asks for a new test (Back to 1)
 *
-* NOTE: clean up this documentation but here's some conventions:
+* Our Universal Register Convention:
 * D6 - Bad flag. if its 0, good, if its 1, bad
 * D7 - is always the return value from all subroutines
 *-----------------------------------------------------------
@@ -78,7 +95,7 @@ prompt3		MOVE.B	#task1,D0		;D0 holds task1, print wo Cr
   		BEQ 	valEror	 		; TODO: input_error should branch back to prompt when done
   		CMPI.L	#$FFFF,D7		; easiest way is to just see if its over FFFF
   		BGT	valEror
- 		MOVE.L 	D7,(ivalu) 		;save pattern value to memory for later
+ 		MOVE.W 	D7,(ivalu) 		;save pattern value to memory for later
  		BRA	lets_go
  	
 valEror		MOVE.B	#task1,D0		*D0 now holds task1, print wo CR
@@ -95,7 +112,7 @@ lets_go		MOVE.B	#task0,D0		*Do now holds task0, print w CR
 
  		MOVEA.L ifirst,A0		*load starting address into A0
   		MOVEA.L iend,A1			*load ending address into A1
-  		MOVEA.W ivalu,A2		*load test pattern into A2
+  		MOVE.W 	ivalu,D0		*load test pattern into A2
 
 		BSR	do_fill			; fill the address range
 		BSR	do_test			; run the test
@@ -373,6 +390,8 @@ valuErr		DC.B	'You entered an invalid value to search',CR,LF
 valuErrL	DC.W	valuErrL-valuErr	*lenght of value error string
 
 		END	start		*won't read any more instructions
+
+
 
 
 
