@@ -225,7 +225,8 @@ read_hex 	MOVEM.L A1/D5,-(SP)
 		MOVE.B	D1,D0		; cache the string length
 		SUBI.B	#1,D0		; D0 - 1 is the number of chars remaining
 rh_loop		CMPI.B	#0,D0		; while D0 >= 0
-		BGE	rh_ok		; after the loop, we are done
+;		BGE	rh_ok		; after the loop, we are done
+		BLT	rh_ok		; after the loop, we are done
 		BSR	a_to_h		; convert current ASCII to hex
 		CMPI.B	#1,D6		; check bad flag
 		BEQ	rh_err		; if its set, error out, yes this is redundant
@@ -282,23 +283,29 @@ exit		MOVEM.L (SP)+,D2	*restore register
 ***********************************************************
 a_to_h		MOVEM.W	D1,-(SP) 	; save te state of d1 to stack
 		CLR.L 	D7		; clear out the return value (D7)
-		MOVE.W	(A1)+,D1	; read the character into D1
-		MOVE.W	D1,D7		; prepare the return value
-		CMPI.W	#$30,D1		; if D1 < $30, invalid
+*		MOVE.W	(A1)+,D1	; read the character into D1
+*		MOVE.W	D1,D7		; prepare the return value
+		;DEBUG: changed all the sizes to bytes here
+		MOVE.B	(A1)+,D1	; read the character into D1
+		MOVE.B	D1,D7		; prepare the return value
+
+		
+		
+		CMPI.B	#$30,D1		; if D1 < $30, invalid
 		BLT	ah_err
-		CMPI.W	#$40,D1		; if D1 < $40, it's 0-9
+		CMPI.B	#$40,D1		; if D1 < $40, it's 0-9
 		BLT	ah_num
-		CMPI.W	#$46,D1		; if D1 < $46, its A-F
+		CMPI.B	#$46,D1		; if D1 < $46, its A-F
 		BLT	ah_uc
-		CMPI.W 	#$61,D1		; if D1 < $61 or > $66, error
+		CMPI.B 	#$61,D1		; if D1 < $61 or > $66, error
 		BLT	ah_err
-		CMPI.W	#66,D1
+		CMPI.B	#$66,D1
 		BGT	ah_err	; if we havent errored out yet, fall through to lower case
-ah_lc		SUBI.W	#$57,D7		; lower case: the hex value - $57 is the hex num
+ah_lc		SUBI.B	#$57,D7		; lower case: the hex value - $57 is the hex num
 		BRA	ah_ok		; done
-ah_uc		SUBI.W	#$37,D1		; upper case: the hex value - $37 is the hex num
+ah_uc		SUBI.B	#$37,D1		; upper case: the hex value - $37 is the hex num
 		BRA	ah_ok		; done		
-ah_num		SUBI.W	#$30,D7		; numeric: the hex value - $30 is the number
+ah_num		SUBI.B	#$30,D7		; numeric: the hex value - $30 is the number
 		BRA	ah_ok		; done
 ah_err		MOVE.W 	#1,D6		; set bad flag
 ah_ok		MOVEM.W	(SP)+,D1	; pop D1 off the stack
@@ -353,6 +360,7 @@ valuErr		DC.B	'You entered an invalid value to search',CR,LF
 valuErrL	DC.W	valuErrL-valuErr	*lenght of value error string
 
 		END	start		*won't read any more instructions
+
 
 
 
