@@ -294,15 +294,14 @@ a_to_h		MOVEM.W	D1,-(SP) 	; save te state of d1 to stack
 		CMPI.W	#$46,D1		; if D1 < $46, its A-F
 		BLT	ah_uc
 		CMPI.W 	#$61,D1		; if D1 < $61 or > $66, error
-		BLT	ah_lc
+		BLT	ah_err
 		CMPI.W	#66,D1
-		BGT	ah_err
-
+		BGT	ah_err	; if we havent errored out yet, fall through to lower case
+ah_lc		SUBI.W	#$37,D7		; lower case: the hex value - $37 is the hex num
+		BRA	ah_ok		; done
 ah_uc		SUBI.W	#$57,D1		; upper case: the hex value - $57 is the hex num
 		BRA	ah_ok		; done		
 ah_num		SUBI.W	#$30,D7		; numeric: the hex value - $30 is the number
-		BRA	ah_ok		; done
-ah_lc		SUBI.W	#$37,D7		; lower case: the hex value - $37 is the hex num
 		BRA	ah_ok		; done
 ah_err		MOVE.W 	#1,D6		; set bad flag
 ah_ok		MOVEM.W	(SP)+,D1	; pop D1 off the stack
@@ -383,6 +382,7 @@ valuErr		DC.B	'You entered an invalid value to search',CR,LF
 valuErrL	DC.W	valuErrL-valuErr	*lenght of value error string
 
 		END	start		*won't read any more instructions
+
 
 
 
